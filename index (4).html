@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mīqāt · Traceur du Coran</title>
+<meta name="description" content="Traceur de lecture du Coran, verset par verset : ḥifẓ, tilāwa, tafsīr, tajwīd et notes.">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#A67C2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mīqāt">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root{
+    /* Palette: encre & enluminure manuscrite */
+    --ink:#1A1714;          /* encre noire */
+    --parch:#F2EBDC;        /* parchemin */
+    --parch-2:#E8DEC8;      /* parchemin ombré */
+    --gold:#A67C2E;         /* or des enluminures */
+    --gold-soft:#C9A24B;
+    --lapis:#2E4A6B;        /* lapis-lazuli */
+    --lapis-soft:#5B7BA0;
+    --vermillon:#9A3B2E;    /* rubrique vermillon */
+    --jade:#3E6B54;         /* vert acquis */
+    --line:#D8CBB0;
+    --line-strong:#C3B492;
+    --muted:#7A6E58;
+    --shadow:0 1px 2px rgba(26,23,20,.06),0 8px 24px rgba(26,23,20,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #F7F1E4 0%, transparent 60%),
+      var(--parch);
+    color:var(--ink);
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .amiri{font-family:"Amiri","Scheherazade New","Traditional Arabic",serif;}
+  /* ---- Layout shell ---- */
+  header.top{
+    position:sticky;top:0;z-index:40;
+    background:linear-gradient(180deg, rgba(242,235,220,.97), rgba(242,235,220,.86));
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line-strong);
+  }
+  .top-inner{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:baseline;gap:12px;margin-right:auto}
+  .brand .ar{font-size:30px;color:var(--gold);letter-spacing:.5px}
+  .brand .lat{font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--muted)}
+  .khatm{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  .khatm b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .ring{--p:0;width:42px;height:42px;border-radius:50%;
+    background:conic-gradient(var(--gold) calc(var(--p)*1%), var(--line) 0);
+    display:grid;place-items:center;flex:none}
+  .ring::after{content:"";width:32px;height:32px;border-radius:50%;background:var(--parch)}
+  .ring span{position:absolute;font-size:10px;font-weight:700;color:var(--ink)}
+
+  main{max-width:1180px;margin:0 auto;padding:22px 20px 80px}
+  .lede{display:flex;gap:24px;align-items:flex-end;flex-wrap:wrap;margin:6px 0 22px}
+  .lede h1{font-size:26px;margin:0;font-weight:600;letter-spacing:.2px}
+  .lede p{margin:0;color:var(--muted);font-size:14px;max-width:60ch}
+
+  /* ---- Mode tabs ---- */
+  .modes{display:flex;gap:6px;background:var(--parch-2);border:1px solid var(--line-strong);
+    border-radius:999px;padding:4px}
+  .modes button{border:0;background:transparent;font:inherit;font-size:13px;color:var(--muted);
+    padding:7px 16px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .modes button .ar{font-size:15px}
+  .modes button[aria-selected="true"]{background:var(--ink);color:var(--parch);box-shadow:var(--shadow)}
+  .navtabs{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .tajwid-tab{border:1px solid var(--gold);background:#FBF7EE;font:inherit;font-size:13px;color:var(--gold);
+    padding:9px 16px;border-radius:999px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .tajwid-tab .ar{font-size:16px}
+  .tajwid-tab[aria-pressed="true"]{background:var(--gold);color:#fff}
+  .tajwid-tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* ---- Tajwīd view ---- */
+  .tj-lede h2{font-size:23px;margin:0 0 6px;font-weight:600}
+  .tj-lede p{margin:0 0 16px;color:var(--muted);font-size:14px;max-width:70ch}
+  .tj-search{width:100%;font:inherit;font-size:14px;padding:10px 15px;border-radius:10px;
+    border:1px solid var(--line-strong);background:#FBF7EE;color:var(--ink);margin-bottom:22px}
+  .tj-search:focus{outline:2px solid var(--gold-soft);outline-offset:1px}
+  .tj-group{margin-bottom:30px}
+  .tj-group-head{display:flex;align-items:baseline;gap:14px;margin-bottom:4px;flex-wrap:wrap}
+  .tj-group-head .ar{font-size:24px;color:var(--gold)}
+  .tj-group-head h3{font-size:17px;margin:0;font-weight:600}
+  .tj-group-intro{color:var(--muted);font-size:13px;margin:0 0 16px;max-width:74ch;line-height:1.6}
+  .tj-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .tj-card{background:linear-gradient(180deg,#FBF7EE,#F6EFE0);border:1px solid var(--line-strong);
+    border-radius:14px;padding:16px;box-shadow:var(--shadow);border-left:4px solid var(--line-strong)}
+  .tj-card[data-k="lapis"]{border-left-color:var(--lapis)}
+  .tj-card[data-k="jade"]{border-left-color:var(--jade)}
+  .tj-card[data-k="gold"]{border-left-color:var(--gold)}
+  .tj-card[data-k="vermillon"]{border-left-color:var(--vermillon)}
+  .tj-card h4{margin:0 0 8px;font-size:15.5px;font-weight:600}
+  .tj-card .def{font-size:13px;color:var(--ink);margin:0 0 12px;line-height:1.55}
+  .tj-letters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+  .tj-letters .l{font-family:"Amiri",serif;font-size:20px;line-height:1;
+    background:#fff;border:1px solid var(--line-strong);border-radius:8px;
+    min-width:36px;height:38px;display:grid;place-items:center;padding:0 4px;color:var(--ink)}
+  .tj-card[data-k="lapis"] .l{border-color:var(--lapis-soft)}
+  .tj-card[data-k="jade"] .l{border-color:var(--jade)}
+  .tj-card[data-k="gold"] .l{border-color:var(--gold-soft)}
+  .tj-card[data-k="vermillon"] .l{border-color:#c98a80}
+  .tj-letters-note{font-size:11.5px;color:var(--muted);margin:0 0 12px;font-style:italic}
+  .tj-ex{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .tj-ex .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
+  .tj-ex .ar{font-family:"Amiri",serif;font-size:24px;color:var(--ink);direction:rtl;line-height:1.7}
+  .tj-ex .ref{font-size:11px;color:#fff;background:var(--gold);padding:2px 9px;border-radius:999px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
+  .tj-ex .ref.none{background:var(--muted)}
+  .tj-ex .fr{font-size:12px;color:var(--muted);margin:0;line-height:1.5}
+  .tj-mnemo{margin-top:10px;background:linear-gradient(180deg,rgba(166,124,46,.10),rgba(166,124,46,.04));
+    border:1px dashed var(--gold-soft);border-radius:10px;padding:10px 12px}
+  .tj-mnemo-head{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:6px}
+  .tj-mnemo-head .bulb{font-size:13px}
+  .tj-mnemo-head .ar{margin-left:auto;font-family:"Amiri",serif;font-size:19px;color:var(--ink);
+    text-transform:none;letter-spacing:0;direction:rtl;text-align:right;flex:1}
+  .tj-mnemo p{margin:0;font-size:12.5px;color:var(--ink);line-height:1.55}
+  .tj-mnemo-trad{font-style:italic;color:var(--muted)!important;margin-bottom:6px!important;font-size:12px!important}
+
+  /* ---- Toolbar ---- */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  .toolbar input[type=search]{
+    flex:1;min-width:200px;font:inherit;font-size:14px;padding:9px 14px;border-radius:10px;
+    border:1px solid var(--line-strong);background:#FBF7EE;color:var(--ink)}
+  .toolbar input:focus{outline:2px solid var(--gold-soft);outline-offset:1px}
+  .chip{font:inherit;font-size:12px;padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);
+    background:#FBF7EE;color:var(--muted);cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--lapis);color:#fff;border-color:var(--lapis)}
+
+  /* ---- Surah grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+  .surah{
+    background:linear-gradient(180deg,#FBF7EE,#F6EFE0);
+    border:1px solid var(--line-strong);border-radius:14px;padding:14px 15px;cursor:pointer;
+    box-shadow:var(--shadow);transition:transform .12s ease,border-color .12s ease;position:relative;overflow:hidden}
+  .surah:hover{transform:translateY(-2px);border-color:var(--gold-soft)}
+  .surah:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .surah .num{position:absolute;top:10px;right:12px;font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums;
+    width:26px;height:26px;border:1px solid var(--line-strong);border-radius:50%;
+    display:grid;place-items:center;background:#fff}
+  .surah .ar{font-size:24px;color:var(--gold);margin-bottom:2px}
+  .surah .lat{font-size:15px;font-weight:600}
+  .surah .meta{font-size:11.5px;color:var(--muted);margin-top:2px;letter-spacing:.04em}
+  .surah .bar{margin-top:11px;height:6px;border-radius:4px;background:var(--line);overflow:hidden;display:flex}
+  .surah .bar i{display:block;height:100%}
+  .surah .bar i.done{background:var(--jade)}
+  .surah .bar i.prog{background:var(--gold-soft)}
+  .surah .pct{font-size:11px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+
+  /* ---- Verse detail ---- */
+  .panel{background:linear-gradient(180deg,#FBF7EE,#F7F0E2);border:1px solid var(--line-strong);
+    border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .panel-head{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#F6EEDD,#F2E9D6)}
+  .back{border:1px solid var(--line-strong);background:#fff;border-radius:9px;padding:7px 12px;
+    font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+  .panel-head .ar{font-size:30px;color:var(--gold)}
+  .panel-head .t{font-weight:600;font-size:17px}
+  .panel-head .s{font-size:12px;color:var(--muted)}
+  .legend{margin-left:auto;display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .verses{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:8px;padding:18px 20px}
+  .v{aspect-ratio:1;border:1px solid var(--line-strong);border-radius:10px;background:#fff;
+    cursor:pointer;display:grid;place-items:center;font-size:13px;font-variant-numeric:tabular-nums;
+    color:var(--ink);position:relative;transition:transform .1s ease}
+  .v:hover{transform:scale(1.06)}
+  .v:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .v[data-s="1"]{background:var(--gold-soft);border-color:var(--gold);color:#241c08}
+  .v[data-s="2"]{background:var(--jade);border-color:#2f5641;color:#eafff4}
+  .v .dot{position:absolute;bottom:3px;display:flex;gap:2px}
+  .v .dot b{width:4px;height:4px;border-radius:50%;background:rgba(0,0,0,.25)}
+
+  .hint{padding:0 20px 18px;font-size:12px;color:var(--muted)}
+
+  /* ---- Notes ---- */
+  .notes-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  @media(max-width:760px){.notes-wrap{grid-template-columns:1fr}}
+  .note{background:linear-gradient(180deg,#FBF7EE,#F6EFE0);border:1px solid var(--line-strong);
+    border-radius:14px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+  .note h3{margin:0;padding:14px 16px;font-size:14px;letter-spacing:.04em;display:flex;align-items:center;gap:9px;
+    border-bottom:1px solid var(--line)}
+  .note.err h3{background:linear-gradient(90deg,rgba(154,59,46,.12),transparent);color:var(--vermillon)}
+  .note.refl h3{background:linear-gradient(90deg,rgba(46,74,107,.12),transparent);color:var(--lapis)}
+  .note h3 .tag{font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted);margin-left:auto}
+  .note .add{display:flex;gap:8px;padding:12px 14px;border-bottom:1px dashed var(--line)}
+  .note .add input{flex:1;font:inherit;font-size:13px;padding:8px 11px;border-radius:8px;
+    border:1px solid var(--line-strong);background:#fff}
+  .note .add button{border:0;border-radius:8px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer;color:#fff}
+  .note.err .add button{background:var(--vermillon)}
+  .note.refl .add button{background:var(--lapis)}
+  .note ul{list-style:none;margin:0;padding:8px 14px 14px;overflow:auto;max-height:340px}
+  .note li{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line);font-size:13.5px}
+  .note li .ref{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .note li .txt{flex:1}
+  .note li button.del{margin-left:auto;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+  .note li button.del:hover{color:var(--vermillon)}
+  .note .empty{color:var(--muted);font-size:13px;font-style:italic;padding:18px 2px}
+
+  /* ---- Sync (GitHub Gist) ---- */
+  .sync{margin-top:26px;border:1px solid var(--line-strong);border-radius:14px;background:#FBF7EE;overflow:hidden}
+  .sync summary{cursor:pointer;padding:14px 16px;font-size:14px;display:flex;align-items:center;gap:10px;list-style:none}
+  .sync summary::-webkit-details-marker{display:none}
+  .sync summary .badge{margin-left:auto;font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line-strong);color:var(--muted)}
+  .sync summary .badge.on{background:var(--jade);color:#fff;border-color:var(--jade)}
+  .sync .body{padding:0 16px 16px;display:grid;gap:12px}
+  .sync .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .sync label{font-size:12px;color:var(--muted);min-width:120px}
+  .sync input{flex:1;min-width:200px;font:inherit;font-size:13px;padding:8px 11px;border-radius:8px;border:1px solid var(--line-strong);background:#fff}
+  .sync .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .sync button{border:1px solid var(--line-strong);background:#fff;border-radius:9px;padding:9px 15px;font:inherit;font-size:13px;cursor:pointer}
+  .sync button.primary{background:var(--ink);color:var(--parch);border-color:var(--ink)}
+  .sync button.gold{background:var(--gold);color:#fff;border-color:var(--gold)}
+  .sync .status{font-size:12px;color:var(--muted)}
+  .sync .help{font-size:11.5px;color:var(--muted);line-height:1.6}
+  .sync .help code{background:var(--parch-2);padding:1px 5px;border-radius:4px;font-size:11px}
+  .sync a{color:var(--lapis)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--parch);padding:11px 18px;border-radius:10px;font-size:13px;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:60}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .foot{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  .hidden{display:none!important}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span class="ar amiri">مِيقَات</span>
+      <span class="lat">Mīqāt · Traceur</span>
+    </div>
+    <div class="khatm" title="Avancement global (les 3 voies réunies)">
+      <div class="ring" id="ring"><span id="ringPct">0%</span></div>
+      <div>Khatm&nbsp;<b id="khatmCount">0</b> / 6236 versets</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="lede">
+    <div>
+      <h1>Avance dans le Livre, verset par verset</h1>
+      <p>Trois voies, un même chemin : mémorisation (ḥifẓ), récitation (tilāwa) et compréhension (tafsīr). Choisis une voie, ouvre une sourate, marque chaque verset. Ta progression se synchronise sur un GitHub Gist privé.</p>
+    </div>
+    <div class="navtabs">
+      <div class="modes" role="tablist" aria-label="Voie de travail">
+        <button role="tab" data-mode="hifz" aria-selected="true"><span class="ar amiri">حِفْظ</span> Ḥifẓ</button>
+        <button role="tab" data-mode="tilawa" aria-selected="false"><span class="ar amiri">تِلَاوَة</span> Tilāwa</button>
+        <button role="tab" data-mode="tafsir" aria-selected="false"><span class="ar amiri">تَفْسِير</span> Tafsīr</button>
+      </div>
+      <button class="tajwid-tab" id="tajwidTab" aria-pressed="false"><span class="ar amiri">تَجْوِيد</span> Tajwīd</button>
+    </div>
+  </div>
+
+  <div id="trackerWrap">
+  <!-- LIST VIEW -->
+  <section id="listView">
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Chercher une sourate (nom, numéro)…" aria-label="Chercher une sourate">
+      <button class="chip" id="fMecca" aria-pressed="false">Mecquoise</button>
+      <button class="chip" id="fMedina" aria-pressed="false">Médinoise</button>
+      <button class="chip" id="fUnfinished" aria-pressed="false">En cours</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- DETAIL VIEW -->
+  <section id="detailView" class="hidden">
+    <div class="panel">
+      <div class="panel-head">
+        <button class="back" id="back">← Sourates</button>
+        <span class="ar amiri" id="dAr"></span>
+        <div>
+          <div class="t" id="dName"></div>
+          <div class="s" id="dSub"></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:#fff;border:1px solid var(--line-strong)"></i>À faire</span>
+          <span><i style="background:var(--gold-soft)"></i>En cours</span>
+          <span><i style="background:var(--jade)"></i>Acquis</span>
+        </div>
+      </div>
+      <div class="verses" id="verses"></div>
+      <div class="hint">Clic = avancer le statut (à faire → en cours → acquis → à faire). Les trois points sous un verset indiquent son état dans les autres voies.</div>
+    </div>
+  </section>
+
+  <!-- NOTES -->
+  <div class="notes-wrap">
+    <div class="note err">
+      <h3>⚠︎ Mes erreurs <span class="tag" id="errScope">global</span></h3>
+      <div class="add">
+        <input id="errInput" placeholder="Erreur de tajwīd, confusion, oubli…" aria-label="Nouvelle erreur">
+        <button id="errAdd">Noter</button>
+      </div>
+      <ul id="errList"></ul>
+    </div>
+    <div class="note refl">
+      <h3>✦ Mes réflexions <span class="tag" id="reflScope">global</span></h3>
+      <div class="add">
+        <input id="reflInput" placeholder="Tadabbur, lien, sens qui s'ouvre…" aria-label="Nouvelle réflexion">
+        <button id="reflAdd">Noter</button>
+      </div>
+      <ul id="reflList"></ul>
+    </div>
+  </div>
+  </div><!-- /trackerWrap -->
+
+  <!-- TAJWĪD VIEW -->
+  <section id="tajwidView" class="hidden">
+    <div class="tj-lede">
+      <h2>Les règles du tajwīd</h2>
+      <p>Référence à consulter, organisée par règle. Pour chacune : les lettres concernées et un exemple coranique avec sa référence (sourate:verset). Le texte des exemples est cité dans le rasm ʿuthmānī.</p>
+    </div>
+    <input type="search" id="tjSearch" class="tj-search" placeholder="Chercher une règle, une lettre…" aria-label="Chercher une règle de tajwīd">
+    <div id="tjBody"></div>
+  </section>
+
+  <!-- SYNC -->
+  <details class="sync" id="syncBox">
+    <summary>
+      <span>☁︎ Synchronisation GitHub Gist</span>
+      <span class="badge" id="syncBadge">hors ligne</span>
+    </summary>
+    <div class="body">
+      <div class="row">
+        <label for="tokenIn">Token GitHub</label>
+        <input type="password" id="tokenIn" placeholder="ghp_… (scope : gist)" autocomplete="off">
+      </div>
+      <div class="row">
+        <label for="gistIn">Gist ID (optionnel)</label>
+        <input id="gistIn" placeholder="Laisser vide pour en créer un nouveau">
+      </div>
+      <div class="btns">
+        <button class="gold" id="btnConnect">Connecter</button>
+        <button class="primary" id="btnPush">↑ Sauvegarder</button>
+        <button id="btnPull">↓ Charger</button>
+        <button id="btnDisc">Déconnecter</button>
+      </div>
+      <div class="status" id="syncStatus">Non connecté. Tes données restent sur cet appareil.</div>
+      <div class="help">
+        <b>Comment obtenir un token :</b> GitHub → Settings → Developer settings → <a href="https://github.com/settings/tokens/new?scopes=gist&description=Miqat%20Tracker" target="_blank" rel="noopener">Personal access tokens → Generate</a>, coche uniquement le scope <code>gist</code>. Le token et l'ID du Gist sont gardés <b>localement</b> sur cet appareil ; rien n'est envoyé ailleurs que vers l'API GitHub. Un seul Gist <b>privé</b> contient toute ta progression (<code>miqat-progress.json</code>) — synchronise-le entre tes appareils en réutilisant le même Gist ID.
+      </div>
+    </div>
+  </details>
+
+  <div class="foot">
+    <span>Mīqāt — مِيقَات · « le temps fixé du rendez-vous »</span>
+    <span id="lastSync"></span>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SURAHS=[[1, "الفاتحة", "Al-Fatihah", "M", 7], [2, "البقرة", "Al-Baqarah", "D", 286], [3, "آل عمران", "Ali 'Imran", "D", 200], [4, "النساء", "An-Nisa", "D", 176], [5, "المائدة", "Al-Ma'idah", "D", 120], [6, "الأنعام", "Al-An'am", "M", 165], [7, "الأعراف", "Al-A'raf", "M", 206], [8, "الأنفال", "Al-Anfal", "D", 75], [9, "التوبة", "At-Tawbah", "D", 129], [10, "يونس", "Yunus", "M", 109], [11, "هود", "Hud", "M", 123], [12, "يوسف", "Yusuf", "M", 111], [13, "الرعد", "Ar-Ra'd", "D", 43], [14, "ابراهيم", "Ibrahim", "M", 52], [15, "الحجر", "Al-Hijr", "M", 99], [16, "النحل", "An-Nahl", "M", 128], [17, "الإسراء", "Al-Isra", "M", 111], [18, "الكهف", "Al-Kahf", "M", 110], [19, "مريم", "Maryam", "M", 98], [20, "طه", "Taha", "M", 135], [21, "الأنبياء", "Al-Anbya", "M", 112], [22, "الحج", "Al-Hajj", "D", 78], [23, "المؤمنون", "Al-Mu'minun", "M", 118], [24, "النور", "An-Nur", "D", 64], [25, "الفرقان", "Al-Furqan", "M", 77], [26, "الشعراء", "Ash-Shu'ara", "M", 227], [27, "النمل", "An-Naml", "M", 93], [28, "القصص", "Al-Qasas", "M", 88], [29, "العنكبوت", "Al-'Ankabut", "M", 69], [30, "الروم", "Ar-Rum", "M", 60], [31, "لقمان", "Luqman", "M", 34], [32, "السجدة", "As-Sajdah", "M", 30], [33, "الأحزاب", "Al-Ahzab", "D", 73], [34, "سبإ", "Saba", "M", 54], [35, "فاطر", "Fatir", "M", 45], [36, "يس", "Ya-Sin", "M", 83], [37, "الصافات", "As-Saffat", "M", 182], [38, "ص", "Sad", "M", 88], [39, "الزمر", "Az-Zumar", "M", 75], [40, "غافر", "Ghafir", "M", 85], [41, "فصلت", "Fussilat", "M", 54], [42, "الشورى", "Ash-Shuraa", "M", 53], [43, "الزخرف", "Az-Zukhruf", "M", 89], [44, "الدخان", "Ad-Dukhan", "M", 59], [45, "الجاثية", "Al-Jathiyah", "M", 37], [46, "الأحقاف", "Al-Ahqaf", "M", 35], [47, "محمد", "Muhammad", "D", 38], [48, "الفتح", "Al-Fath", "D", 29], [49, "الحجرات", "Al-Hujurat", "D", 18], [50, "ق", "Qaf", "M", 45], [51, "الذاريات", "Adh-Dhariyat", "M", 60], [52, "الطور", "At-Tur", "M", 49], [53, "النجم", "An-Najm", "M", 62], [54, "القمر", "Al-Qamar", "M", 55], [55, "الرحمن", "Ar-Rahman", "D", 78], [56, "الواقعة", "Al-Waqi'ah", "M", 96], [57, "الحديد", "Al-Hadid", "D", 29], [58, "المجادلة", "Al-Mujadila", "D", 22], [59, "الحشر", "Al-Hashr", "D", 24], [60, "الممتحنة", "Al-Mumtahanah", "D", 13], [61, "الصف", "As-Saf", "D", 14], [62, "الجمعة", "Al-Jumu'ah", "D", 11], [63, "المنافقون", "Al-Munafiqun", "D", 11], [64, "التغابن", "At-Taghabun", "D", 18], [65, "الطلاق", "At-Talaq", "D", 12], [66, "التحريم", "At-Tahrim", "D", 12], [67, "الملك", "Al-Mulk", "M", 30], [68, "القلم", "Al-Qalam", "M", 52], [69, "الحاقة", "Al-Haqqah", "M", 52], [70, "المعارج", "Al-Ma'arij", "M", 44], [71, "نوح", "Nuh", "M", 28], [72, "الجن", "Al-Jinn", "M", 28], [73, "المزمل", "Al-Muzzammil", "M", 20], [74, "المدثر", "Al-Muddaththir", "M", 56], [75, "القيامة", "Al-Qiyamah", "M", 40], [76, "الانسان", "Al-Insan", "D", 31], [77, "المرسلات", "Al-Mursalat", "M", 50], [78, "النبإ", "An-Naba", "M", 40], [79, "النازعات", "An-Nazi'at", "M", 46], [80, "عبس", "'Abasa", "M", 42], [81, "التكوير", "At-Takwir", "M", 29], [82, "الإنفطار", "Al-Infitar", "M", 19], [83, "المطففين", "Al-Mutaffifin", "M", 36], [84, "الإنشقاق", "Al-Inshiqaq", "M", 25], [85, "البروج", "Al-Buruj", "M", 22], [86, "الطارق", "At-Tariq", "M", 17], [87, "الأعلى", "Al-A'la", "M", 19], [88, "الغاشية", "Al-Ghashiyah", "M", 26], [89, "الفجر", "Al-Fajr", "M", 30], [90, "البلد", "Al-Balad", "M", 20], [91, "الشمس", "Ash-Shams", "M", 15], [92, "الليل", "Al-Layl", "M", 21], [93, "الضحى", "Ad-Duhaa", "M", 11], [94, "الشرح", "Ash-Sharh", "M", 8], [95, "التين", "At-Tin", "M", 8], [96, "العلق", "Al-'Alaq", "M", 19], [97, "القدر", "Al-Qadr", "M", 5], [98, "البينة", "Al-Bayyinah", "D", 8], [99, "الزلزلة", "Az-Zalzalah", "D", 8], [100, "العاديات", "Al-'Adiyat", "M", 11], [101, "القارعة", "Al-Qari'ah", "M", 11], [102, "التكاثر", "At-Takathur", "M", 8], [103, "العصر", "Al-'Asr", "M", 3], [104, "الهمزة", "Al-Humazah", "M", 9], [105, "الفيل", "Al-Fil", "M", 5], [106, "قريش", "Quraysh", "M", 4], [107, "الماعون", "Al-Ma'un", "M", 7], [108, "الكوثر", "Al-Kawthar", "M", 3], [109, "الكافرون", "Al-Kafirun", "M", 6], [110, "النصر", "An-Nasr", "D", 3], [111, "المسد", "Al-Masad", "M", 5], [112, "الإخلاص", "Al-Ikhlas", "M", 4], [113, "الفلق", "Al-Falaq", "M", 5], [114, "الناس", "An-Nas", "M", 6]];
+const TAJWID=[{"group": "Nūn sākina & Tanwīn", "group_ar": "النُّون السَّاكِنة والتَّنوين", "intro": "Quand un nūn sākina (نْ sans voyelle) ou un tanwīn (ـٌ ـٍ ـً) rencontre la lettre suivante, l'une de ces quatre règles s'applique selon cette lettre.", "rules": [{"id": "izhar", "name": "Iẓhār (إظهار)", "key": "lapis", "def": "Prononciation claire et nette du nūn, sans nasalisation ni fusion.", "letters": ["ء", "ه", "ع", "ح", "غ", "خ"], "letters_note": "Les 6 lettres gutturales (ḥurūf al-ḥalq).", "ex_ar": "مِنْ خَوْفِۭ", "ref": "106:4", "ex_fr": "min khawf — le نْ devant خ se dit clairement.", "mnemo": {"ar": "أَخِي هَاكَ عِلْمًا حَازَهُ غَيْرُ خَاسِرٍ", "fr": "Les 6 lettres ouvrent chaque mot. Elles sortent toutes de la gorge : le nūn est « trop loin » pour fusionner, donc il reste clair.", "trad": "« Mon frère, prends une science qu'a acquise celui qui n'est pas perdant. »"}}, {"id": "idgham_ghunna", "name": "Idghām avec ghunna (إدغام بغنّة)", "key": "jade", "def": "Le nūn se fond dans la lettre suivante avec nasalisation (ghunna ~2 temps).", "letters": ["ي", "ن", "م", "و"], "letters_note": "Lettres réunies dans le mot يَنْمُو.", "ex_ar": "حَبۡلٞ مِّن مَّسَدِۭ", "ref": "111:5", "ex_fr": "ḥablum-mim-masad — le tanwīn et le nūn se fondent dans le mīm avec ghunna.", "mnemo": {"ar": "يَنْمُو", "fr": "Le mot يَنْمُو réunit les 4 lettres (ي ن م و) — et « pousser/croître » évoque le son nasal qui se prolonge."}}, {"id": "idgham_no_ghunna", "name": "Idghām sans ghunna (إدغام بغير غنّة)", "key": "jade", "def": "Le nūn se fond totalement dans la lettre suivante, sans nasalisation.", "letters": ["ل", "ر"], "letters_note": "Seulement lām et rā.", "ex_ar": "وَيۡلٞ لِّكُلِّ", "ref": "104:1", "ex_fr": "waylul-li-kull — le tanwīn se fond dans le lām, sans ghunna.", "mnemo": {"ar": "ل + ر", "fr": "Deux lettres seulement : Lām + Rā = pas de nez. Fusion sèche, sans ghunna."}}, {"id": "iqlab", "name": "Iqlāb (إقلاب)", "key": "gold", "def": "Le nūn se transforme en un son mīm caché, avec ghunna, devant le bā.", "letters": ["ب"], "letters_note": "Uniquement devant bā. Signalé par un petit mīm (ۢ).", "ex_ar": "مِنۢ بَعْدِ", "ref": "—", "ex_fr": "mim-baʿd — le نْ devient un م caché devant ب.", "mnemo": {"ar": "ن → م", "fr": "Une seule lettre : le ب. Le son labial du Bā attire le Nūn vers le Mīm."}}, {"id": "ikhfa", "name": "Ikhfā' (إخفاء)", "key": "vermillon", "def": "Prononciation intermédiaire : le nūn est partiellement caché avec ghunna, sans être ni clair ni fondu.", "letters": ["ت", "ث", "ج", "د", "ذ", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ف", "ق", "ك"], "letters_note": "Les 15 lettres restantes.", "ex_ar": "مِن شَرِّ", "ref": "113:2", "ex_fr": "min-sharr — le نْ est caché (ghunna) devant ش.", "mnemo": {"ar": "15 = le reste", "fr": "Règle par élimination : 6 (iẓhār) + 4 + 2 (idghām) + 1 (iqlāb) = 13. Les 15 lettres restantes = ikhfā'."}}]}, {"group": "Mīm sākina", "group_ar": "الميم السَّاكِنة", "intro": "Quand un mīm sākina (مْ) précède une lettre, trois règles possibles selon la lettre suivante.", "rules": [{"id": "ikhfa_shafawi", "name": "Ikhfā' shafawī (إخفاء شفوي)", "key": "vermillon", "def": "Le mīm est légèrement caché avec ghunna devant le bā.", "letters": ["ب"], "letters_note": "Uniquement devant bā.", "ex_ar": "تَرۡمِيهِم بِحِجَارَةٖ", "ref": "105:4", "ex_fr": "tarmīhim-bi-ḥijāra — le مْ est caché avec ghunna devant ب."}, {"id": "idgham_shafawi", "name": "Idghām shafawī (إدغام شفوي)", "key": "jade", "def": "Deux mīm se rencontrent : fusion avec ghunna.", "letters": ["م"], "letters_note": "mīm sākina suivi d'un mīm.", "ex_ar": "لَّهُم مَّغۡفِرَةٞ", "ref": "—", "ex_fr": "lahum-maghfira — les deux مّ fusionnent avec ghunna."}, {"id": "izhar_shafawi", "name": "Iẓhār shafawī (إظهار شفوي)", "key": "lapis", "def": "Le mīm se prononce clairement devant toutes les autres lettres.", "letters": ["ـ"], "letters_note": "Toutes les lettres sauf ب et م. Attention particulière devant و et ف.", "ex_ar": "هُمۡ يُرَآءُونَ", "ref": "107:6", "ex_fr": "hum yurā'ūn — le مْ se dit clairement devant ي."}]}, {"group": "Qalqala", "group_ar": "القلقلة", "intro": "Cinq lettres rebondissent (vibration/écho) lorsqu'elles portent un sukūn, surtout à l'arrêt.", "rules": [{"id": "qalqala", "name": "Qalqala (قلقلة)", "key": "gold", "def": "Léger rebond sonore de la lettre quand elle est sākina. Plus fort à l'arrêt (waqf).", "letters": ["ق", "ط", "ب", "ج", "د"], "letters_note": "Réunies dans قُطۡبُ جَدٍّ.", "ex_ar": "وَتَبَّ", "ref": "111:1", "ex_fr": "wa-tabb — rebond sur le ب à l'arrêt (qalqala kubrā).", "mnemo": {"ar": "قُطۡبُ جَدٍّ", "fr": "« Le pôle d'un grand-père » réunit les 5 lettres. Image : elles rebondissent comme une balle quand elles sont sākina.", "trad": "« Le pôle d'un grand-père » (phrase sans sens propre, faite pour réunir les 5 lettres)."}}]}, {"group": "Le Madd (allongement)", "group_ar": "المدّ", "intro": "Allongement de la voix sur une lettre de prolongation (ا و ي). Le madd naturel dure 2 temps ; il s'allonge selon ce qui suit.", "rules": [{"id": "madd_tabii", "name": "Madd ṭabīʿī (مدّ طبيعي)", "key": "lapis", "def": "Allongement naturel de 2 temps, sans cause particulière après.", "letters": ["ا", "و", "ي"], "letters_note": "Lettres de madd : alif après fatḥa, wāw après ḍamma, yā après kasra.", "ex_ar": "قَالَ", "ref": "—", "ex_fr": "qāla — allongement de 2 temps sur le alif."}, {"id": "madd_muttasil", "name": "Madd muttaṣil (مدّ متّصل)", "key": "vermillon", "def": "Une hamza suit la lettre de madd dans le même mot : 4 à 5 temps (obligatoire).", "letters": ["ء"], "letters_note": "Madd + hamza collés dans un seul mot.", "ex_ar": "جَآءَ", "ref": "110:1", "ex_fr": "jā'a — allongement obligatoire, le ء suit le madd.", "mnemo": {"ar": "madd + ء (même mot)", "fr": "Muttaṣil = « attaché » : la hamza est collée au madd dans le même mot → obligatoire, 4-5 temps."}}, {"id": "madd_munfasil", "name": "Madd munfaṣil (مدّ منفصل)", "key": "gold", "def": "La lettre de madd finit un mot, une hamza commence le suivant : 4 à 5 temps (permis).", "letters": ["ء"], "letters_note": "Madd en fin de mot + hamza au début du mot suivant.", "ex_ar": "إِنَّآ أَعۡطَيۡنَٰكَ", "ref": "108:1", "ex_fr": "innā aʿṭaynāka — le madd de إنّا rejoint la hamza de أعطينا.", "mnemo": {"ar": "madd | ء (mot suivant)", "fr": "Munfaṣil = « séparé » : le madd finit un mot, la hamza ouvre le suivant → permis, 4-5 temps."}}, {"id": "madd_lazim", "name": "Madd lāzim (مدّ لازم)", "key": "vermillon", "def": "Un sukūn permanent suit la lettre de madd : 6 temps (obligatoire, le plus long).", "letters": ["ـّ", "ـْ"], "letters_note": "Madd suivi d'une lettre avec shadda ou sukūn permanent.", "ex_ar": "وَلَا ٱلضَّآلِّينَ", "ref": "1:7", "ex_fr": "wa-laḍ-ḍāllīn — le madd précède le ل avec shadda : 6 temps.", "mnemo": {"ar": "2 → 4 → 6", "fr": "Échelle par « obstacle » : aucun = 2 temps, hamza = 4-5, sukūn permanent = 6. Plus l'obstacle est dur, plus on allonge."}}, {"id": "madd_arid", "name": "Madd ʿāriḍ li-s-sukūn (مدّ عارض للسكون)", "key": "gold", "def": "On s'arrête (waqf) sur un mot finissant après un madd : 2, 4 ou 6 temps au choix.", "letters": ["ا", "و", "ي"], "letters_note": "Sukūn temporaire dû à l'arrêt en fin de verset.", "ex_ar": "ٱلۡعَٰلَمِينَ", "ref": "1:2", "ex_fr": "al-ʿālamīn — à l'arrêt, le ي s'allonge (2/4/6 temps)."}]}, {"group": "Lām & Rā", "group_ar": "اللام والراء", "intro": "Le lām de « Allāh » et la lettre rā changent d'épaisseur (lourd/léger) selon la voyelle qui précède.", "rules": [{"id": "lam_tafkhim", "name": "Lām lourd (تفخيم)", "key": "vermillon", "def": "Le lām de lafẓ al-jalāla (الله) est emphatique après fatḥa ou ḍamma.", "letters": ["ل"], "letters_note": "Uniquement le لله après a/u.", "ex_ar": "نَصۡرُ ٱللَّهِ", "ref": "110:1", "ex_fr": "naṣru-llāh — le ل est lourd après le ḍamma."}, {"id": "lam_tarqiq", "name": "Lām léger (ترقيق)", "key": "lapis", "def": "Le lām de الله est léger après une kasra.", "letters": ["ل"], "letters_note": "Le لله après i.", "ex_ar": "بِسۡمِ ٱللَّهِ", "ref": "1:1", "ex_fr": "bismi-llāh — le ل est léger après le kasra de بسم."}, {"id": "ra_tafkhim", "name": "Rā lourd (تفخيم)", "key": "vermillon", "def": "Le rā est emphatique s'il porte fatḥa/ḍamma, ou s'il est sākin après a/u.", "letters": ["ر"], "letters_note": "rā avec a/u, ou sākin précédé de a/u.", "ex_ar": "رَبِّ ٱلۡعَٰلَمِينَ", "ref": "1:2", "ex_fr": "rabbi-l-ʿālamīn — le ر est lourd (fatḥa)."}, {"id": "ra_tarqiq", "name": "Rā léger (ترقيق)", "key": "lapis", "def": "Le rā est léger s'il porte une kasra, ou s'il est sākin après une kasra véritable.", "letters": ["ر"], "letters_note": "rā avec i, ou sākin après i.", "ex_ar": "بِرَبِّ ٱلۡفَلَقِ", "ref": "113:1", "ex_fr": "bi-rabbi-l-falaq — le ر final léger à l'arrêt après kasra."}]}, {"group": "Lām al-taʿrīf (الـ)", "group_ar": "لام التَّعريف", "intro": "Le lām de l'article défini ال se prononce ou se fond selon la lettre qui suit (lettres solaires vs lunaires).", "rules": [{"id": "lam_qamariya", "name": "Lām lunaire (لام قمرية)", "key": "lapis", "def": "Le lām se prononce clairement (iẓhār) devant 14 lettres lunaires.", "letters": ["ا", "ب", "ج", "ح", "خ", "ع", "غ", "ف", "ق", "ك", "م", "ه", "و", "ي"], "letters_note": "Réunies dans : ابغ حجّك وخف عقيمه.", "ex_ar": "ٱلۡحَمۡدُ", "ref": "1:2", "ex_fr": "al-ḥamd — le ل se dit clairement devant ح (lunaire).", "mnemo": {"ar": "اِبۡغِ حَجَّكَ وَخَفۡ عَقِيمَهُ", "fr": "Cette phrase réunit les 14 lettres lunaires. Test oral : dans القَمَر tu entends le « l » → lunaire.", "trad": "« Cherche ton pèlerinage, et crains sa stérilité » (réunit les 14 lettres lunaires)."}}, {"id": "lam_shamsiya", "name": "Lām solaire (لام شمسية)", "key": "jade", "def": "Le lām est muet et se fond dans la lettre suivante (qui porte une shadda).", "letters": ["ت", "ث", "د", "ذ", "ر", "ز", "س", "ش", "ص", "ض", "ط", "ظ", "ل", "ن"], "letters_note": "Les 14 lettres solaires ; la lettre suivante prend une shadda.", "ex_ar": "ٱلرَّحۡمَٰنِ", "ref": "1:3", "ex_fr": "ar-raḥmān — le ل se fond dans le ر (solaire).", "mnemo": {"ar": "الشَّمۡس", "fr": "Test oral : dans الشَّمۡس le « l » disparaît → solaire. La lettre suivante prend une shadda."}}]}, {"group": "Lettres emphatiques & Ghunna", "group_ar": "الاستعلاء والغنّة", "intro": "Certaines lettres se prononcent toujours « lourdes » (tafkhīm). La ghunna est la nasalisation portée par le nūn et le mīm.", "rules": [{"id": "istila", "name": "Lettres d'isti'lā' (حروف الاستعلاء)", "key": "vermillon", "def": "Sept lettres toujours emphatiques : la langue monte vers le palais.", "letters": ["خ", "ص", "ض", "غ", "ط", "ق", "ظ"], "letters_note": "Réunies dans : خصّ ضغطٍ قظ.", "ex_ar": "ٱلصِّرَٰطَ", "ref": "1:6", "ex_fr": "aṣ-ṣirāṭ — le ص et le ط sont lourds.", "mnemo": {"ar": "خُصَّ ضَغۡطٍ قِظۡ", "fr": "Cette phrase contient les 7 lettres emphatiques. La langue monte vers le palais : son « lourd ».", "trad": "« Préserve la pression, sois vigilant » (assemblage des 7 lettres emphatiques)."}}, {"id": "ghunna", "name": "Ghunna (غنّة)", "key": "gold", "def": "Nasalisation de ~2 temps, obligatoire sur tout nūn ou mīm portant une shadda.", "letters": ["نّ", "مّ"], "letters_note": "nūn mushaddada et mīm mushaddada.", "ex_ar": "إِنَّ شَانِئَكَ", "ref": "108:3", "ex_fr": "inna — ghunna obligatoire de 2 temps sur le نّ.", "mnemo": {"ar": "نّ ، مّ", "fr": "Repère visuel simple : dès que tu vois une shadda sur un ن ou un م, c'est 2 temps de nez obligatoires."}}]}, {"group": "Le Waqf (l'arrêt)", "group_ar": "الوقف", "intro": "Les signes au-dessus du texte indiquent où il est permis, obligatoire ou interdit de s'arrêter pour respirer.", "rules": [{"id": "waqf_lazim", "name": "Arrêt obligatoire (مـ)", "key": "vermillon", "def": "Il faut s'arrêter ; continuer changerait le sens.", "letters": ["مـ"], "letters_note": "Signe mīm (waqf lāzim).", "ex_ar": "مـ", "ref": "—", "ex_fr": "S'arrêter est requis pour préserver le sens."}, {"id": "waqf_mamnu", "name": "Arrêt interdit (لا)", "key": "jade", "def": "Il ne faut pas s'arrêter ; si on respire, on reprend avant.", "letters": ["لا"], "letters_note": "Signe lā.", "ex_ar": "لا", "ref": "—", "ex_fr": "Continuer la lecture sans s'arrêter."}, {"id": "waqf_jaiz", "name": "Arrêt permis (ج)", "key": "gold", "def": "On peut s'arrêter ou continuer, les deux sont corrects.", "letters": ["ج"], "letters_note": "Signe jīm (waqf jā'iz).", "ex_ar": "ج", "ref": "—", "ex_fr": "Pause autorisée au choix du lecteur."}, {"id": "waqf_awla", "name": "Arrêt préférable (قلى)", "key": "lapis", "def": "S'arrêter est préférable, mais continuer reste permis.", "letters": ["قلى"], "letters_note": "al-waqf awlā.", "ex_ar": "قلى", "ref": "—", "ex_fr": "Mieux vaut marquer la pause."}, {"id": "wasl_awla", "name": "Continuité préférable (صلى)", "key": "lapis", "def": "Continuer est préférable, mais s'arrêter reste permis.", "letters": ["صلى"], "letters_note": "al-waṣl awlā.", "ex_ar": "صلى", "ref": "—", "ex_fr": "Mieux vaut poursuivre la lecture."}, {"id": "waqf_muanaqa", "name": "Arrêt alterné (∴ ∴)", "key": "gold", "def": "Trois points en deux endroits : on s'arrête à l'un OU l'autre, jamais aux deux.", "letters": ["∴"], "letters_note": "muʿānaqa (arrêt enlacé).", "ex_ar": "∴", "ref": "—", "ex_fr": "Choisir un seul des deux points d'arrêt."}]}];
+/* ---------- État ---------- */
+const MODES=["hifz","tilawa","tafsir"];
+const MODE_AR={hifz:"حِفْظ",tilawa:"تِلَاوَة",tafsir:"تَفْسِير"};
+let mode="hifz";
+let current=null;            // sourate ouverte
+let filters={mecca:false,medina:false,unfinished:false,q:""};
+
+// progress[mode] = { "surahId:verse": 1|2 }  (absent = 0 = à faire)
+const LS="miqat.v1";
+let DB=load();
+
+function blank(){
+  return {progress:{hifz:{},tilawa:{},tafsir:{}}, notes:{err:[],refl:[]}, sync:{token:"",gist:""}, updated:null};
+}
+function load(){
+  try{const r=JSON.parse(localStorage.getItem(LS));if(r&&r.progress)return Object.assign(blank(),r);}catch(e){}
+  return blank();
+}
+function save(){DB.updated=new Date().toISOString();localStorage.setItem(LS,JSON.stringify(DB));}
+
+/* ---------- Helpers ---------- */
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._);toast._=setTimeout(()=>t.classList.remove("show"),1800);}
+
+function surahStats(sid,m){
+  const p=DB.progress[m],tot=SURAHS[sid-1][4];let done=0,prog=0;
+  for(let v=1;v<=tot;v++){const s=p[sid+":"+v];if(s===2)done++;else if(s===1)prog++;}
+  return {tot,done,prog};
+}
+function globalDone(){
+  let d=0;for(const m of MODES){for(const k in DB.progress[m])if(DB.progress[m][k]===2)d++;}
+  return d; // versets-voies acquis ; max 6236*3
+}
+function globalKhatm(){
+  // un verset "compté" s'il est acquis dans AU MOINS une voie — vision khatm
+  const seen=new Set();
+  for(const m of MODES)for(const k in DB.progress[m])if(DB.progress[m][k]===2)seen.add(k);
+  return seen.size;
+}
+
+/* ---------- Rendu liste ---------- */
+function renderGrid(){
+  const g=$("#grid");g.innerHTML="";
+  const q=filters.q.toLowerCase();
+  SURAHS.forEach(s=>{
+    const[id,ar,lat,type,tot]=s;
+    if(filters.mecca&&type!=="M")return;
+    if(filters.medina&&type!=="D")return;
+    if(q){const hay=(id+" "+lat+" "+ar).toLowerCase();if(!hay.includes(q))return;}
+    const st=surahStats(id,mode);
+    if(filters.unfinished&&st.done===st.tot&&st.done>0)return;
+    if(filters.unfinished&&st.done===0&&st.prog===0)return;
+    const pctDone=Math.round(st.done/tot*100),pctProg=Math.round(st.prog/tot*100);
+    const card=el("div","surah");card.tabIndex=0;card.setAttribute("role","button");
+    card.innerHTML=`<div class="num">${id}</div>
+      <div class="ar amiri">${ar}</div>
+      <div class="lat">${lat}</div>
+      <div class="meta">${type==="M"?"Mecquoise":"Médinoise"} · ${tot} versets</div>
+      <div class="bar"><i class="done" style="width:${pctDone}%"></i><i class="prog" style="width:${pctProg}%"></i></div>
+      <div class="pct">${st.done} acquis · ${st.prog} en cours</div>`;
+    card.onclick=()=>openSurah(id);
+    card.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openSurah(id);}};
+    g.appendChild(card);
+  });
+  if(!g.children.length)g.appendChild(el("div","note empty","Aucune sourate ne correspond. Ajuste les filtres ou la recherche."));
+}
+
+/* ---------- Rendu détail ---------- */
+function openSurah(id){
+  current=id;
+  const[_,ar,lat,type,tot]=SURAHS[id-1];
+  $("#dAr").textContent=ar;$("#dName").textContent=`${id}. ${lat}`;
+  $("#dSub").textContent=`${type==="M"?"Mecquoise":"Médinoise"} · ${tot} versets · voie ${MODE_AR[mode]}`;
+  const c=$("#verses");c.innerHTML="";
+  const p=DB.progress[mode];
+  for(let v=1;v<=tot;v++){
+    const key=id+":"+v,st=p[key]||0;
+    const cell=el("button","v");cell.dataset.s=st;cell.textContent=v;
+    cell.setAttribute("aria-label",`Verset ${v}`);
+    // points pour les autres voies
+    const others=MODES.filter(m=>m!==mode).map(m=>DB.progress[m][key]||0);
+    if(others.some(x=>x>0)){
+      const dot=el("div","dot");others.forEach(o=>{if(o>0){const b=el("b");b.style.opacity=o===2?".9":".4";dot.appendChild(b);}});
+      cell.appendChild(dot);
+    }
+    cell.onclick=()=>{
+      const cur=DB.progress[mode][key]||0;const next=(cur+1)%3;
+      if(next===0)delete DB.progress[mode][key];else DB.progress[mode][key]=next;
+      save();openSurah(id);renderKhatm();autoPush();
+    };
+    c.appendChild(cell);
+  }
+  $("#listView").classList.add("hidden");
+  $("#detailView").classList.remove("hidden");
+  $("#errScope").textContent=$("#reflScope").textContent=`${id}. ${lat}`;
+  renderNotes();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function closeSurah(){
+  current=null;$("#detailView").classList.add("hidden");$("#listView").classList.remove("hidden");
+  $("#errScope").textContent=$("#reflScope").textContent="global";
+  renderGrid();renderNotes();
+}
+
+/* ---------- Khatm ring ---------- */
+function renderKhatm(){
+  const k=globalKhatm();const pct=Math.round(k/6236*100);
+  $("#khatmCount").textContent=k;$("#ringPct").textContent=pct+"%";
+  $("#ring").style.setProperty("--p",pct);
+}
+
+/* ---------- Notes ---------- */
+function renderNotes(){
+  ["err","refl"].forEach(kind=>{
+    const ul=$("#"+kind+"List");ul.innerHTML="";
+    const scope=current; // null=global
+    const items=DB.notes[kind].map((n,i)=>({n,i})).filter(x=>scope?x.n.s===scope:true);
+    if(!items.length){ul.appendChild(el("li","empty",scope?"Rien pour cette sourate. Note ta première observation.":"Aucune note pour l'instant."));return;}
+    items.reverse().forEach(({n,i})=>{
+      const li=el("li");
+      const ref=n.s?`${n.s}:${n.v||"—"}`:"·";
+      li.innerHTML=`<span class="ref">${ref}</span><span class="txt"></span><button class="del" aria-label="Supprimer">×</button>`;
+      li.querySelector(".txt").textContent=n.t;
+      li.querySelector(".del").onclick=()=>{DB.notes[kind].splice(i,1);save();renderNotes();autoPush();};
+      ul.appendChild(li);
+    });
+  });
+}
+function addNote(kind,input){
+  const t=input.value.trim();if(!t)return;
+  DB.notes[kind].push({t,s:current,v:null,m:mode,d:Date.now()});
+  input.value="";save();renderNotes();autoPush();toast("Noté ✓");
+}
+
+/* ---------- GitHub Gist sync ---------- */
+const FILE="miqat-progress.json";
+let pushTimer=null;
+function autoPush(){ if(!DB.sync.token||!DB.sync.gist)return; clearTimeout(pushTimer); pushTimer=setTimeout(pushGist,2500); }
+function setBadge(on,txt){const b=$("#syncBadge");b.textContent=txt;b.classList.toggle("on",on);}
+function payload(){return {progress:DB.progress,notes:DB.notes,updated:new Date().toISOString(),app:"miqat.v1"};}
+
+async function pushGist(){
+  const {token,gist}=DB.sync;if(!token){toast("Connecte un token d'abord");return;}
+  $("#syncStatus").textContent="Sauvegarde en cours…";
+  const body={description:"Mīqāt · progression du Coran",public:false,
+    files:{[FILE]:{content:JSON.stringify(payload(),null,2)}}};
+  try{
+    const url=gist?`https://api.github.com/gists/${gist}`:"https://api.github.com/gists";
+    const r=await fetch(url,{method:gist?"PATCH":"POST",
+      headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json"},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();DB.sync.gist=j.id;$("#gistIn").value=j.id;save();
+    setBadge(true,"synchronisé");
+    $("#syncStatus").textContent="Sauvegardé sur GitHub.";
+    $("#lastSync").textContent="Dernière sync : "+new Date().toLocaleString("fr-FR");
+    toast("Sauvegardé sur GitHub ✓");
+  }catch(e){$("#syncStatus").textContent="Échec : "+e.message+" (token/scope gist ?)";setBadge(false,"erreur");}
+}
+async function pullGist(){
+  const {token,gist}=DB.sync;if(!token||!gist){toast("Token + Gist ID requis");return;}
+  $("#syncStatus").textContent="Chargement…";
+  try{
+    const r=await fetch(`https://api.github.com/gists/${gist}`,
+      {headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json"}});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();const f=j.files[FILE];if(!f)throw new Error("fichier introuvable");
+    const data=JSON.parse(f.content);
+    DB.progress=data.progress||DB.progress;DB.notes=data.notes||DB.notes;save();
+    setBadge(true,"synchronisé");
+    $("#syncStatus").textContent="Progression chargée depuis GitHub.";
+    renderAll();toast("Chargé ✓");
+  }catch(e){$("#syncStatus").textContent="Échec : "+e.message;setBadge(false,"erreur");}
+}
+
+/* ---------- Bind ---------- */
+function renderAll(){renderGrid();renderKhatm();renderNotes();if(current)openSurah(current);}
+
+/* ---------- Tajwīd ---------- */
+function renderTajwid(q){
+  q=(q||"").trim().toLowerCase();
+  const body=$("#tjBody");body.innerHTML="";
+  let shown=0;
+  TAJWID.forEach(g=>{
+    const cards=g.rules.filter(r=>{
+      if(!q)return true;
+      const hay=(r.name+" "+r.def+" "+(r.letters_note||"")+" "+r.letters.join("")+" "+g.group).toLowerCase();
+      return hay.includes(q);
+    });
+    if(!cards.length)return;
+    const grp=el("div","tj-group");
+    grp.innerHTML=`<div class="tj-group-head"><span class="ar amiri">${g.group_ar}</span><h3>${g.group}</h3></div>
+      <p class="tj-group-intro">${g.intro}</p><div class="tj-cards"></div>`;
+    const wrap=grp.querySelector(".tj-cards");
+    cards.forEach(r=>{
+      shown++;
+      const card=el("div","tj-card");card.dataset.k=r.key;
+      const letters=r.letters.map(l=>`<span class="l amiri">${l}</span>`).join("");
+      const refClass=r.ref==="—"?"ref none":"ref";
+      const refTxt=r.ref==="—"?"règle":r.ref;
+      const mnemo=r.mnemo?`<div class="tj-mnemo">
+          <div class="tj-mnemo-head"><span class="bulb">💡</span>Mnémotechnique<span class="ar amiri">${r.mnemo.ar}</span></div>
+          ${r.mnemo.trad?`<p class="tj-mnemo-trad">${r.mnemo.trad}</p>`:""}
+          <p>${r.mnemo.fr}</p>
+        </div>`:"";
+      card.innerHTML=`<h4>${r.name}</h4>
+        <p class="def">${r.def}</p>
+        <div class="tj-letters">${letters}</div>
+        <p class="tj-letters-note">${r.letters_note||""}</p>
+        <div class="tj-ex">
+          <div class="top"><span class="ar amiri">${r.ex_ar}</span><span class="${refClass}">${refTxt}</span></div>
+          <p class="fr">${r.ex_fr}</p>
+        </div>
+        ${mnemo}`;
+      wrap.appendChild(card);
+    });
+    body.appendChild(grp);
+  });
+  if(!shown)body.appendChild(el("div","note empty","Aucune règle ne correspond à cette recherche."));
+}
+function showTajwid(on){
+  $("#trackerWrap").classList.toggle("hidden",on);
+  $("#tajwidView").classList.toggle("hidden",!on);
+  $("#tajwidTab").setAttribute("aria-pressed",on);
+  if(on){renderTajwid($("#tjSearch").value);window.scrollTo({top:0,behavior:"smooth"});}
+}
+$("#tajwidTab").onclick=()=>showTajwid($("#tajwidView").classList.contains("hidden"));
+$("#tjSearch").oninput=e=>renderTajwid(e.target.value);
+
+document.querySelectorAll(".modes button").forEach(b=>{
+  b.onclick=()=>{
+    showTajwid(false);
+    document.querySelectorAll(".modes button").forEach(x=>x.setAttribute("aria-selected","false"));
+    b.setAttribute("aria-selected","true");mode=b.dataset.mode;
+    if(current)openSurah(current);else renderGrid();
+  };
+});
+$("#search").oninput=e=>{filters.q=e.target.value;renderGrid();};
+$("#fMecca").onclick=e=>{filters.mecca=!filters.mecca;if(filters.mecca)filters.medina=false;syncChips();renderGrid();};
+$("#fMedina").onclick=e=>{filters.medina=!filters.medina;if(filters.medina)filters.mecca=false;syncChips();renderGrid();};
+$("#fUnfinished").onclick=e=>{filters.unfinished=!filters.unfinished;syncChips();renderGrid();};
+function syncChips(){$("#fMecca").setAttribute("aria-pressed",filters.mecca);$("#fMedina").setAttribute("aria-pressed",filters.medina);$("#fUnfinished").setAttribute("aria-pressed",filters.unfinished);}
+$("#back").onclick=closeSurah;
+$("#errAdd").onclick=()=>addNote("err",$("#errInput"));
+$("#reflAdd").onclick=()=>addNote("refl",$("#reflInput"));
+$("#errInput").onkeydown=e=>{if(e.key==="Enter")addNote("err",$("#errInput"));};
+$("#reflInput").onkeydown=e=>{if(e.key==="Enter")addNote("refl",$("#reflInput"));};
+
+$("#btnConnect").onclick=()=>{
+  DB.sync.token=$("#tokenIn").value.trim();DB.sync.gist=$("#gistIn").value.trim();save();
+  if(DB.sync.token){setBadge(false,"connecté");$("#syncStatus").textContent="Token enregistré localement. « Sauvegarder » crée/maj ton Gist privé.";toast("Connecté");}
+};
+$("#btnPush").onclick=pushGist;
+$("#btnPull").onclick=pullGist;
+$("#btnDisc").onclick=()=>{DB.sync={token:"",gist:""};save();$("#tokenIn").value="";$("#gistIn").value="";setBadge(false,"hors ligne");$("#syncStatus").textContent="Déconnecté. Données conservées localement.";};
+
+/* ---------- Init ---------- */
+$("#tokenIn").value=DB.sync.token||"";$("#gistIn").value=DB.sync.gist||"";
+if(DB.sync.token&&DB.sync.gist)setBadge(true,"prêt");
+if(DB.updated)$("#lastSync").textContent="Dernière modif locale : "+new Date(DB.updated).toLocaleString("fr-FR");
+renderAll();
+
+/* ---------- PWA : enregistrement du service worker ---------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{navigator.serviceWorker.register("service-worker.js").catch(()=>{});});
+}
+</script>
+</body>
+</html>
